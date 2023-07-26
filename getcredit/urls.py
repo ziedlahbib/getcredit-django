@@ -17,9 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from main.views import ocr
+from eligibilite.views import eligibilite
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('ocr/', ocr, name='ocr'),
+     path('eligibilite/', eligibilite, name='eligibilite'),
 ]
