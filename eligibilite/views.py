@@ -1,58 +1,97 @@
-from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse  # Import JsonResponse here
+import joblib
+import pandas as pd
+from django.http import JsonResponse
 import json
-import tensorflow as tf
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
-# Replace 'saved_model_directory' with the path where your model was saved
-saved_model_directory = r'C:\my_saved_model\1690126746\1690127283'
+model_path = r'C:\Users\lahbi\OneDrive - ESPRIT\Bureau\pfe_final\elg\Nouveau dossier (2)\Census-Data-Income-Prediction-Using-TensorFlow\random_forest_model.joblib'
+loaded_model = joblib.load(model_path)
+print(loaded_model)
+columns_used_in_training  = ['age', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week', 'income_bracket',
+             'income', 'workclass_ Federal-gov', 'workclass_ Local-gov', 'workclass_ Never-worked',
+               'workclass_ Private', 'workclass_ Self-emp-inc', 'workclass_ Self-emp-not-inc',
+                 'workclass_ State-gov', 'workclass_ Without-pay', 'education_ 11th', 'education_ 12th', 
+                 'education_ 1st-4th', 'education_ 5th-6th', 'education_ 7th-8th', 'education_ 9th', 'education_ Assoc-acdm', 
+                 'education_ Assoc-voc', 'education_ Bachelors', 'education_ Doctorate', 'education_ HS-grad', 'education_ Masters',
+                   'education_ Preschool', 'education_ Prof-school', 'education_ Some-college', 'marital_status_ Married-AF-spouse',
+                     'marital_status_ Married-civ-spouse', 'marital_status_ Married-spouse-absent', 
+                     'marital_status_ Never-married', 'marital_status_ Separated', 'marital_status_ Widowed',
+                       'occupation_ Adm-clerical', 'occupation_ Armed-Forces', 'occupation_ Craft-repair',
+                         'occupation_ Exec-managerial', 'occupation_ Farming-fishing', 'occupation_ Handlers-cleaners',
+                           'occupation_ Machine-op-inspct', 'occupation_ Other-service', 'occupation_ Priv-house-serv',
+                             'occupation_ Prof-specialty', 'occupation_ Protective-serv', 'occupation_ Sales',
+                               'occupation_ Tech-support', 'occupation_ Transport-moving', 'relationship_ Not-in-family',
+                                 'relationship_ Other-relative', 'relationship_ Own-child', 'relationship_ Unmarried',
+                                   'relationship_ Wife', 'race_ Asian-Pac-Islander', 'race_ Black', 'race_ Other', 'race_ White',
+                                     'gender_ Male', 'native_country_ Cambodia', 'native_country_ Canada', 'native_country_ China',
+                                       'native_country_ Columbia', 'native_country_ Cuba', 'native_country_ Dominican-Republic', 
+                                       'native_country_ Ecuador', 'native_country_ El-Salvador', 'native_country_ England',
+                                         'native_country_ France', 'native_country_ Germany', 'native_country_ Greece', 'native_country_ Guatemala', 
+                                         'native_country_ Haiti', 'native_country_ Holand-Netherlands', 'native_country_ Honduras', 'native_country_ Hong', 
+                                         'native_country_ Hungary', 'native_country_ India', 'native_country_ Iran', 'native_country_ Ireland',
+                                           'native_country_ Italy', 'native_country_ Jamaica', 'native_country_ Japan', 'native_country_ Laos',
+                                             'native_country_ Mexico', 'native_country_ Nicaragua', 'native_country_ Outlying-US(Guam-USVI-etc)', 
+                                             'native_country_ Peru', 'native_country_ Philippines', 'native_country_ Poland', 'native_country_ Portugal',
+                                               'native_country_ Puerto-Rico', 'native_country_ Scotland', 'native_country_ South', 'native_country_ Taiwan', 
+                                               'native_country_ Thailand', 'native_country_ Trinadad&Tobago', 'native_country_ United-States', 'native_country_ Vietnam',
+                                                 'native_country_ Yugoslavia']
 
-# Load the saved model
-loaded_model = tf.saved_model.load(saved_model_directory)
+# Identify the categorical columns
+cat_cols = ['workclass', 'education', 'marital_status', 'occupation', 'relationship', 'race', 'gender', 'native_country']
 
-# Get the prediction function from the loaded model
-prediction_fn = loaded_model.signatures["predict"]
+# ... (previous code)
 
 def eligibilite(request):
+    print("Inside eligibilite function")
     try:
-        # Check if the request method is POST
         if request.method == 'POST':
-            # Parse JSON data from the request body
             data = json.loads(request.body)
+            print(data)
 
-            # Print the received data for debugging purposes
-            print("Received data:", data)
+            # Create a DataFrame from the received data
+            new_user_data = pd.DataFrame(data, index=[0])
+            print('before')
+            # Perform label encoding for the categorical columns in the new user data
+            for col in cat_cols:
+                encoder = LabelEncoder()
+                new_user_data[col] = encoder.fit_transform(new_user_data[col])
+            print('before')    
+            # Ensure the columns match the columns used in training
+            for col in columns_used_in_training:
+                if col not in new_user_data.columns:
+                    new_user_data[col] = 0
+            print('before')
+            # Reorder the columns to match the order in the training data
+            new_user_data = new_user_data[columns_used_in_training]
 
-            # Prepare the input data for prediction
-            input_data = {
-                'age': tf.constant([int(data['age'])], dtype=tf.int64),
-                'workclass': tf.constant([data['workclass']], dtype=tf.string),
-                'education': tf.constant([data['education']], dtype=tf.string),
-                'education_num': tf.constant([int(data['education_num'])], dtype=tf.int64),
-                'marital_status': tf.constant([data['marital_status']], dtype=tf.string),
-                'occupation': tf.constant([data['occupation']], dtype=tf.string),
-                'relationship': tf.constant([data['relationship']], dtype=tf.string),
-                'race': tf.constant([data['race']], dtype=tf.string),
-                'gender': tf.constant([data['gender']], dtype=tf.string),
-                'capital_gain': tf.constant([int(data['capital_gain'])], dtype=tf.int64),
-                'capital_loss': tf.constant([int(data['capital_loss'])], dtype=tf.int64),
-                'hours_per_week': tf.constant([int(data['hours_per_week'])], dtype=tf.int64),
-                'native_country': tf.constant([data['native_country']], dtype=tf.string)
-            }
+            print('before')
+            # Drop the 'income_bracket' and 'income' columns as they are not needed for prediction
+            new_user_data.drop(['income_bracket', 'income'], axis=1, inplace=True)
 
-            # Make the prediction using the prediction function
-            predictions = prediction_fn(**input_data)
+            # Make predictions using the loaded model
+            predictions = loaded_model.predict(new_user_data)
+            print('after')
 
-            # Access the predicted class using the 'class_ids' key
-            predicted_class = predictions['class_ids'].numpy()[0]
+            predicted_category = True if predictions[0] == 1 else False
+            print(predicted_category)
 
             # Return the predicted income category as a JSON response
-            # Set content type as "application/json"
-            response_data = {'eligibilite': bool(predicted_class == 1)}  # Convert to Python native bool
+            response_data = {'eligibilite': predicted_category}
             return JsonResponse(response_data)
 
     except Exception as e:
-        # Return an error response if there was an exception during prediction
         return JsonResponse({'error': str(e)})
 
-    # Return an error response if the request method is not POST
     return JsonResponse({'error': 'Invalid request method'})
+
+
+

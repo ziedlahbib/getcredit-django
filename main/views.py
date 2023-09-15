@@ -13,7 +13,7 @@ from PIL import Image
 
 def ocr(request):
     #download the model
-    reader = easyocr.Reader(['fr'], gpu = False)
+    reader = easyocr.Reader(['fr'], gpu = True)
     if request.method == 'POST':
         uploaded_file = request.FILES['file']  # Assuming the file input field has the name 'file'
 
